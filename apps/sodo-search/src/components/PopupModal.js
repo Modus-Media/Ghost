@@ -89,17 +89,31 @@ function useSearchWithDebounce(initialValue) {
 }
 
 function SearchBox() {
-    const {searchValue, dispatch, inputRef, t} = useContext(AppContext);
+    const {searchValue, dispatch, searchIndex, inputRef, t} = useContext(AppContext);
     const [inputValue, setInputValue, debouncedValue] = useSearchWithDebounce(searchValue);
     const containerRef = useRef(null);
 
     // Update the searchValue in AppContext when the debounced value changes
     useEffect(() => {
-        if (debouncedValue !== searchValue) {
-            dispatch('update', {
-                searchValue: debouncedValue
-            });
-        }
+        const updateSearch = async () => {
+            if (debouncedValue !== searchValue) {
+                dispatch('update', {
+                    searchValue: debouncedValue,
+                    indexComplete: false
+                });
+
+                try {
+                    await searchIndex?.searchPosts(debouncedValue);
+                    dispatch('update', {
+                        indexComplete: true
+                    });
+                } catch (error) {
+                    console.error('Search error:', error);
+                }
+            }
+        };
+
+        updateSearch();
     }, [debouncedValue, searchValue]);
 
     useEffect(() => {
@@ -153,7 +167,7 @@ function SearchBox() {
 }
 
 function SearchClearIcon({setInputValue}) {
-    const {searchValue = '', dispatch} = useContext(AppContext);
+    const {searchValue = ''} = useContext(AppContext);
     if (!searchValue) {
         return (
             <SearchIcon className='text-neutral-900' alt='Search' />
@@ -517,47 +531,34 @@ function AuthorResults({authors, selectedResult, setSelectedResult}) {
 
 function SearchResultBox() {
     const {searchValue = '', searchIndex, indexComplete} = useContext(AppContext);
+    let searchResults = null;
+    let filteredTags = [];
+    let filteredPosts = [];
+    let filteredAuthors = [];
 
-    const [filteredPosts, setFilteredPosts] = useState([]);
-    const [filteredAuthors, setFilteredAuthors] = useState([]);
-    const [filteredTags, setFilteredTags] = useState([]);
+    if (indexComplete && searchValue) {
+        searchResults = searchIndex?.search(searchValue);
+        filteredPosts = searchResults?.posts || [];
+        filteredAuthors = searchResults?.authors || [];
+        filteredTags = searchResults?.tags || [];
+    }
 
-    useEffect(() => {
-        if (!indexComplete || !searchValue) {
-            setFilteredPosts([]);
-            setFilteredAuthors([]);
-            setFilteredTags([]);
-            return;
-        }
+    filteredAuthors = filteredAuthors.filter((author) => {
+        const invalidUrlRegex = /\/404\/$/;
+        return !(author?.url && invalidUrlRegex.test(author?.url));
+    });
 
-        const doSearch = async () => {
-            const searchResults = await searchIndex?.search(searchValue);
-
-            let posts = searchResults?.posts || [];
-            let authors = (searchResults?.authors || []).filter((author) => {
-                const invalidUrlRegex = /\/404\/$/;
-                return !(author?.url && invalidUrlRegex.test(author?.url));
-            });
-            let tags = (searchResults?.tags || []).filter((tag) => {
-                const invalidUrlRegex = /\/404\/$/;
-                return !(tag?.url && invalidUrlRegex.test(tag?.url));
-            });
-
-            setFilteredPosts(posts);
-            setFilteredAuthors(authors);
-            setFilteredTags(tags);
-        };
-
-        doSearch();
-    }, [searchValue.trim(), searchIndex, indexComplete]);
+    filteredTags = filteredTags.filter((tag) => {
+        const invalidUrlRegex = /\/404\/$/;
+        return !(tag?.url && invalidUrlRegex.test(tag?.url));
+    });
 
     const hasResults = filteredPosts?.length || filteredAuthors?.length || filteredTags?.length;
-
     if (hasResults) {
         return (
             <Results posts={filteredPosts} authors={filteredAuthors} tags={filteredTags} />
         );
-    } else if (searchValue) {
+    } else if (searchValue && indexComplete) {
         return (
             <NoResultsBox />
         );

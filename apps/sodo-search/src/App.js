@@ -164,7 +164,7 @@ export default class App extends React.Component {
                 searchValue: this.state.searchValue,
                 inputRef: this.inputRef,
                 onAction: () => {},
-                dispatch: (action, data) => {
+                dispatch: async (action, data) => {
                     if (action === 'update') {
                         this.setState({
                             ...this.state,

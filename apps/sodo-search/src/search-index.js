@@ -67,6 +67,10 @@ export default class SearchIndex {
     }
 
     async searchPosts(value) {
+        if (!value) {
+            return;
+        }
+
         let posts = await this.api.posts.browse({
             limit: '10000',
             fields: 'id,slug,title,plaintext,excerpt,custom_excerpt,url,updated_at,visibility',
@@ -139,8 +143,7 @@ export default class SearchIndex {
         return normalized;
     }
 
-    async search(value) {
-        await this.searchPosts(value);
+    search(value) {
         const posts = this.postsIndex.search(value, {
             enrich: true
         });
