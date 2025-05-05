@@ -78,7 +78,7 @@ function useSearchWithDebounce(initialValue) {
     useEffect(() => {
         const handler = setTimeout(() => {
             setDebouncedValue(inputValue);
-        }, 300);
+        }, inputValue ? 300 : 0);
 
         return () => {
             clearTimeout(handler);
@@ -161,9 +161,6 @@ function SearchClearIcon({setInputValue}) {
     }
     return (
         <button alt='Clear' className='-mb-[1px]' onClick={() => {
-            dispatch('update', {
-                searchValue: ''
-            });
             setInputValue('');
         }}>
             <ClearIcon className='text-neutral-900 hover:text-neutral-500 h-[1.1rem] w-[1.1rem]' />
