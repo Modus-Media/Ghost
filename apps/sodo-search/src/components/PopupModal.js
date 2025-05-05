@@ -70,9 +70,38 @@ class PopupContent extends React.Component {
     }
 }
 
+// Create a custom hook to handle debounced search
+function useSearchWithDebounce(initialValue) {
+    const [inputValue, setInputValue] = useState(initialValue || '');
+    const [debouncedValue, setDebouncedValue] = useState(inputValue);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(inputValue);
+        }, 300);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [inputValue]);
+
+    return [inputValue, setInputValue, debouncedValue];
+}
+
 function SearchBox() {
     const {searchValue, dispatch, inputRef, t} = useContext(AppContext);
+    const [inputValue, setInputValue, debouncedValue] = useSearchWithDebounce(searchValue);
     const containerRef = useRef(null);
+
+    // Update the searchValue in AppContext when the debounced value changes
+    useEffect(() => {
+        if (debouncedValue !== searchValue) {
+            dispatch('update', {
+                searchValue: debouncedValue
+            });
+        }
+    }, [debouncedValue, searchValue]);
+
     useEffect(() => {
         setTimeout(() => {
             inputRef?.current?.focus();
@@ -101,15 +130,13 @@ function SearchBox() {
     return (
         <div className={className} ref={containerRef}>
             <div className='flex items-center justify-center w-4 h-4 me-3'>
-                <SearchClearIcon />
+                <SearchClearIcon setInputValue={setInputValue} />
             </div>
             <input
                 ref={inputRef}
-                value={searchValue || ''}
+                value={inputValue}
                 onChange={(e) => {
-                    dispatch('update', {
-                        searchValue: e.target.value
-                    });
+                    setInputValue(e.target.value);
                 }}
                 onKeyDown={(e) => {
                     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -125,7 +152,7 @@ function SearchBox() {
     );
 }
 
-function SearchClearIcon() {
+function SearchClearIcon({setInputValue}) {
     const {searchValue = '', dispatch} = useContext(AppContext);
     if (!searchValue) {
         return (
@@ -137,6 +164,7 @@ function SearchClearIcon() {
             dispatch('update', {
                 searchValue: ''
             });
+            setInputValue('');
         }}>
             <ClearIcon className='text-neutral-900 hover:text-neutral-500 h-[1.1rem] w-[1.1rem]' />
         </button>
@@ -225,7 +253,7 @@ function PostListItem({post, selectedResult, setSelectedResult}) {
     if (id === selectedResult) {
         className += ' bg-neutral-100';
     }
-    
+
     return (
         <div
             className={className}
@@ -310,17 +338,17 @@ function getHighlightParts({text, highlight}) {
 function HighlightedSection({text = [''], highlight = '', isExcerpt}) {
     highlight = highlight || '';
     highlight = highlight.trim();
-    
+
     // Find the first text value that contains a match
     let selectedText = '';
     let parts = [];
     let highlightIndexes = [];
-    
+
     // Loop through the text values to find the first match, if no match found, use the last text value
     for (let i = 0; i < text.length; i++) {
         const currentText = text[i] || '';
         const result = getHighlightParts({text: currentText, highlight});
-        
+
         if (result.highlightIndexes.length > 0 || i === text.length - 1) {
             // Found a match, use this text
             selectedText = currentText;
@@ -329,7 +357,7 @@ function HighlightedSection({text = [''], highlight = '', isExcerpt}) {
             break;
         }
     }
-    
+
     // Handle excerpt special case for scrolling to match
     if (isExcerpt && highlightIndexes?.[0]) {
         const startIdx = highlightIndexes?.[0]?.startIdx;
@@ -355,7 +383,7 @@ function HighlightedSection({text = [''], highlight = '', isExcerpt}) {
             );
         }
     });
-    
+
     return (
         <>
             {wordMap}

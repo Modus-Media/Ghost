@@ -10,7 +10,7 @@ export default class SearchIndex {
         });
         const rtl = (dir === 'rtl');
         const tokenize = (dir === 'rtl') ? 'reverse' : 'forward';
-        this.postsIndexOptions = {
+        this.postsIndex = new Flexsearch.Document({
             tokenize: tokenize,
             rtl: rtl,
             document: {
@@ -19,7 +19,7 @@ export default class SearchIndex {
                 store: true
             },
             ...this.#getEncodeOptions()
-        };
+        });
         this.authorsIndex = new Flexsearch.Document({
             tokenize: tokenize,
             rtl: rtl,
@@ -43,6 +43,9 @@ export default class SearchIndex {
 
         this.init = this.init.bind(this);
         this.search = this.search.bind(this);
+
+        // Track which posts we've already indexed by ID
+        this.indexedPostIds = new Set();
     }
 
     #updatePostIndex(posts) {
@@ -64,8 +67,6 @@ export default class SearchIndex {
     }
 
     async searchPosts(value) {
-        this.postsIndex = new Flexsearch.Document(this.postsIndexOptions);
-
         let posts = await this.api.posts.browse({
             limit: '10000',
             fields: 'id,slug,title,plaintext,excerpt,custom_excerpt,url,updated_at,visibility',
@@ -79,7 +80,15 @@ export default class SearchIndex {
             if (!posts.length) {
                 posts = [posts];
             }
-            this.#updatePostIndex(posts);
+
+            // Only add posts that haven't been indexed yet
+            const newPosts = posts.filter(post => !this.indexedPostIds.has(post.id));
+            if (newPosts.length > 0) {
+                this.#updatePostIndex(newPosts);
+
+                // Add the IDs to our tracking set
+                newPosts.forEach(post => this.indexedPostIds.add(post.id));
+            }
         }
     }
 
