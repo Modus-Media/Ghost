@@ -15,7 +15,7 @@ export default class SearchIndex {
             rtl: rtl,
             document: {
                 id: 'id',
-                index: ['title', 'plaintext'],
+                index: ['title', 'excerpt', 'plaintext'],
                 store: true
             },
             ...this.#getEncodeOptions()
@@ -68,9 +68,9 @@ export default class SearchIndex {
 
         let posts = await this.api.posts.browse({
             limit: '10000',
-            fields: 'id,slug,title,plaintext,url,updated_at,visibility',
+            fields: 'id,slug,title,plaintext,excerpt,custom_excerpt,url,updated_at,visibility',
             filter: value.trim().split(/\s+/).filter(word => word)
-                .map(word => `title:~'${word}',plaintext:~'${word}'`)
+                .map(word => `title:~'${word}',plaintext:~'${word}',custom_excerpt:~'${word}'`)
                 .join(','),
             order: 'updated_at DESC'
         });

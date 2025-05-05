@@ -220,11 +220,12 @@ function TagResults({tags, selectedResult, setSelectedResult}) {
 
 function PostListItem({post, selectedResult, setSelectedResult}) {
     const {searchValue} = useContext(AppContext);
-    const {title, plaintext, url, id} = post;
+    const {title, plaintext, excerpt, url, id} = post;
     let className = 'py-3 -mx-4 sm:-mx-7 px-4 sm:px-7 cursor-pointer';
     if (id === selectedResult) {
         className += ' bg-neutral-100';
     }
+    
     return (
         <div
             className={className}
@@ -238,10 +239,10 @@ function PostListItem({post, selectedResult, setSelectedResult}) {
             }}
         >
             <h2 className='text-[1.65rem] font-medium leading-tight text-neutral-800'>
-                <HighlightedSection text={title} highlight={searchValue} isExcerpt={false} />
+                <HighlightedSection text={[title]} highlight={searchValue} isExcerpt={false} />
             </h2>
             <p className='text-neutral-400 leading-normal text-sm mt-0 mb-0 truncate'>
-                <HighlightedSection text={plaintext} highlight={searchValue} isExcerpt={true} />
+                <HighlightedSection text={[plaintext,excerpt]} highlight={searchValue} isExcerpt={true} />
             </p>
         </div>
     );
@@ -306,16 +307,35 @@ function getHighlightParts({text, highlight}) {
     };
 }
 
-function HighlightedSection({text = '', highlight = '', isExcerpt}) {
-    text = text || '';
+function HighlightedSection({text = [''], highlight = '', isExcerpt}) {
     highlight = highlight || '';
     highlight = highlight.trim();
-    let {parts, highlightIndexes} = getHighlightParts({text, highlight});
+    
+    // Find the first text value that contains a match
+    let selectedText = '';
+    let parts = [];
+    let highlightIndexes = [];
+    
+    // Loop through the text values to find the first match, if no match found, use the last text value
+    for (let i = 0; i < text.length; i++) {
+        const currentText = text[i] || '';
+        const result = getHighlightParts({text: currentText, highlight});
+        
+        if (result.highlightIndexes.length > 0 || i === text.length - 1) {
+            // Found a match, use this text
+            selectedText = currentText;
+            parts = result.parts;
+            highlightIndexes = result.highlightIndexes;
+            break;
+        }
+    }
+    
+    // Handle excerpt special case for scrolling to match
     if (isExcerpt && highlightIndexes?.[0]) {
         const startIdx = highlightIndexes?.[0]?.startIdx;
         if (startIdx > 50) {
-            text = '...' + text?.slice(startIdx - 20);
-            const {parts: updatedParts} = getHighlightParts({text, highlight});
+            selectedText = '...' + selectedText?.slice(startIdx - 20);
+            const {parts: updatedParts} = getHighlightParts({text: selectedText, highlight});
             parts = updatedParts;
         }
     }
@@ -335,6 +355,7 @@ function HighlightedSection({text = '', highlight = '', isExcerpt}) {
             );
         }
     });
+    
     return (
         <>
             {wordMap}
