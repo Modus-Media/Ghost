@@ -10,16 +10,16 @@ export default class SearchIndex {
         });
         const rtl = (dir === 'rtl');
         const tokenize = (dir === 'rtl') ? 'reverse' : 'forward';
-        this.postsIndex = new Flexsearch.Document({
+        this.postsIndexOptions = {
             tokenize: tokenize,
             rtl: rtl,
             document: {
                 id: 'id',
-                index: ['title', 'excerpt'],
+                index: ['title', 'plaintext'],
                 store: true
             },
             ...this.#getEncodeOptions()
-        });
+        };
         this.authorsIndex = new Flexsearch.Document({
             tokenize: tokenize,
             rtl: rtl,
@@ -63,10 +63,15 @@ export default class SearchIndex {
         });
     }
 
-    async init() {
+    async searchPosts(value) {
+        this.postsIndex = new Flexsearch.Document(this.postsIndexOptions);
+
         let posts = await this.api.posts.browse({
             limit: '10000',
-            fields: 'id,slug,title,excerpt,url,updated_at,visibility',
+            fields: 'id,slug,title,plaintext,url,updated_at,visibility',
+            filter: value.trim().split(/\s+/).filter(word => word)
+                .map(word => `title:~'${word}',plaintext:~'${word}'`)
+                .join(','),
             order: 'updated_at DESC'
         });
 
@@ -76,7 +81,9 @@ export default class SearchIndex {
             }
             this.#updatePostIndex(posts);
         }
+    }
 
+    async init() {
         let authors = await this.api.authors.browse({
             limit: '10000',
             fields: 'id,slug,name,url,profile_image',
@@ -123,7 +130,8 @@ export default class SearchIndex {
         return normalized;
     }
 
-    search(value) {
+    async search(value) {
+        await this.searchPosts(value);
         const posts = this.postsIndex.search(value, {
             enrich: true
         });

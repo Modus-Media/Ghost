@@ -220,7 +220,7 @@ function TagResults({tags, selectedResult, setSelectedResult}) {
 
 function PostListItem({post, selectedResult, setSelectedResult}) {
     const {searchValue} = useContext(AppContext);
-    const {title, excerpt, url, id} = post;
+    const {title, plaintext, url, id} = post;
     let className = 'py-3 -mx-4 sm:-mx-7 px-4 sm:px-7 cursor-pointer';
     if (id === selectedResult) {
         className += ' bg-neutral-100';
@@ -241,7 +241,7 @@ function PostListItem({post, selectedResult, setSelectedResult}) {
                 <HighlightedSection text={title} highlight={searchValue} isExcerpt={false} />
             </h2>
             <p className='text-neutral-400 leading-normal text-sm mt-0 mb-0 truncate'>
-                <HighlightedSection text={excerpt} highlight={searchValue} isExcerpt={true} />
+                <HighlightedSection text={plaintext} highlight={searchValue} isExcerpt={true} />
             </p>
         </div>
     );
@@ -309,6 +309,7 @@ function getHighlightParts({text, highlight}) {
 function HighlightedSection({text = '', highlight = '', isExcerpt}) {
     text = text || '';
     highlight = highlight || '';
+    highlight = highlight.trim();
     let {parts, highlightIndexes} = getHighlightParts({text, highlight});
     if (isExcerpt && highlightIndexes?.[0]) {
         const startIdx = highlightIndexes?.[0]?.startIdx;
@@ -470,27 +471,39 @@ function AuthorResults({authors, selectedResult, setSelectedResult}) {
 
 function SearchResultBox() {
     const {searchValue = '', searchIndex, indexComplete} = useContext(AppContext);
-    let searchResults = null;
-    let filteredTags = [];
-    let filteredPosts = [];
-    let filteredAuthors = [];
 
-    if (indexComplete && searchValue) {
-        searchResults = searchIndex?.search(searchValue);
-        filteredPosts = searchResults?.posts || [];
-        filteredAuthors = searchResults?.authors || [];
-        filteredTags = searchResults?.tags || [];
-    }
+    const [filteredPosts, setFilteredPosts] = useState([]);
+    const [filteredAuthors, setFilteredAuthors] = useState([]);
+    const [filteredTags, setFilteredTags] = useState([]);
 
-    filteredAuthors = filteredAuthors.filter((author) => {
-        const invalidUrlRegex = /\/404\/$/;
-        return !(author?.url && invalidUrlRegex.test(author?.url));
-    });
+    useEffect(() => {
+        if (!indexComplete || !searchValue) {
+            setFilteredPosts([]);
+            setFilteredAuthors([]);
+            setFilteredTags([]);
+            return;
+        }
 
-    filteredTags = filteredTags.filter((tag) => {
-        const invalidUrlRegex = /\/404\/$/;
-        return !(tag?.url && invalidUrlRegex.test(tag?.url));
-    });
+        const doSearch = async () => {
+            const searchResults = await searchIndex?.search(searchValue);
+
+            let posts = searchResults?.posts || [];
+            let authors = (searchResults?.authors || []).filter((author) => {
+                const invalidUrlRegex = /\/404\/$/;
+                return !(author?.url && invalidUrlRegex.test(author?.url));
+            });
+            let tags = (searchResults?.tags || []).filter((tag) => {
+                const invalidUrlRegex = /\/404\/$/;
+                return !(tag?.url && invalidUrlRegex.test(tag?.url));
+            });
+
+            setFilteredPosts(posts);
+            setFilteredAuthors(authors);
+            setFilteredTags(tags);
+        };
+
+        doSearch();
+    }, [searchValue.trim(), searchIndex, indexComplete]);
 
     const hasResults = filteredPosts?.length || filteredAuthors?.length || filteredTags?.length;
 
